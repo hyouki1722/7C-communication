@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>醫病溝通與詢問小幫手</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>🏥 醫護溝通小幫手</h2>
+
+        <div id="inputForm">
+            <div class="form-group">
+                <label for="roomNumber">房號 / 床號</label>
+                <input type="text" id="roomNumber" placeholder="例如：771A" required>
+            </div>
+
+            <div class="form-group">
+                <label for="personnel">想詢問的人員</label>
+                <select id="personnel">
+                    <option value="" disabled selected>請選擇想詢問的對象</option>
+                    <option value="醫師">醫師</option>
+                    <option value="專科護理師">專科護理師</option>
+                    <option value="護理師">護理師</option>
+                    <option value="呼吸治療師">呼吸治療師</option>
+                    <option value="物理治療師">物理治療師</option>
+                    <option value="營養師">營養師</option>
+                    <option value="心理師">心理師</option>
+                    <option value="牧師">牧師</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>想詢問的問題</label>
+                <div id="questionContainer" class="question-container">
+                    <div class="question-row">
+                        <span class="q-number">1.</span>
+                        <input type="text" class="q-input" placeholder="例如：想了解這次住院的療程" required>
+                        <div style="width: 36px;" class="placeholder-space"></div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="add-btn" onclick="addQuestionBox()">
+                        <span>➕</span> 增加下一個問題
+                    </button>
+                </div>
+            </div>
+
+            <button type="button" class="submit-btn" onclick="generateList()">產生問題清單</button>
+        </div>
+
+        <div id="printArea">
+            <h3 style="color: #6a1b9a; text-align: center; margin-top: 0;">📋 您的問題清單</h3>
+            <div class="print-row" id="outDate"></div>
+            <div class="print-row" id="outRoom"></div>
+            <div class="print-row" id="outPersonnel"></div>
+            <div class="print-row">
+                <div style="font-weight: bold; margin-bottom: 8px;">問題內容：</div>
+                <ul class="question-list" id="outQuestions"></ul>
+            </div>
+
+            <div class="btn-group" style="margin-top: 25px;">
+                <button type="button" class="submit-btn" onclick="copyToClipboard()" style="margin-bottom: 12px;">📄
+                    複製文字 (貼至 LINE)</button>
+                <button type="button" class="add-btn" onclick="backToEdit()">⬅️ 返回修改</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        function addQuestionBox() {
+            const container = document.getElementById('questionContainer');
+            const currentCount = container.getElementsByClassName('question-row').length;
+            const nextNumber = currentCount + 1;
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'question-row';
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'q-number';
+            numSpan.textContent = `${nextNumber}.`;
+
+            const inputField = document.createElement('input');
+            inputField.type = 'text';
+            inputField.className = 'q-input';
+            inputField.placeholder = '請輸入您的問題';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '✕';
+            deleteBtn.onclick = function () {
+                container.removeChild(rowDiv);
+                reCalculateNumbers();
+            };
+
+            rowDiv.appendChild(numSpan);
+            rowDiv.appendChild(inputField);
+            rowDiv.appendChild(deleteBtn);
+            container.appendChild(rowDiv);
+
+            
+            setTimeout(() => {
+                inputField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                inputField.focus();
+            }, 100);
+        }
+
+        
+        function reCalculateNumbers() {
+            const container = document.getElementById('questionContainer');
+            const rows = container.getElementsByClassName('question-row');
+            for (let i = 0; i < rows.length; i++) {
+                const numSpan = rows[i].getElementsByClassName('q-number')[0];
+                numSpan.textContent = `${i + 1}.`;
+            }
+        }
+
+        
+        function generateList() {
+            const room = document.getElementById('roomNumber').value.trim();
+            const personnel = document.getElementById('personnel').value;
+            const inputElements = document.getElementsByClassName('q-input');
+            const questionsArray = [];
+
+            for (let i = 0; i < inputElements.length; i++) {
+                const val = inputElements[i].value.trim();
+                if (val !== '') {
+                    questionsArray.push(val);
+                }
+            }
+
+            if (!room) {
+                alert('請輸入您的房號喔！');
+                return;
+            }
+            if (!personnel) {
+                alert('請選擇您想詢問的人員對象喔！');
+                return;
+            }
+            if (questionsArray.length === 0) {
+                alert('請至少填寫一個問題喔！');
+                return;
+            }
+
+            const today = new Date();
+            const dateString = `日期：${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+
+            const outQuestionsUl = document.getElementById('outQuestions');
+            outQuestionsUl.innerHTML = '';
+
+            questionsArray.forEach((q, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${index + 1}. ${q}`;
+                outQuestionsUl.appendChild(li);
+            });
+
+            document.getElementById('outDate').textContent = dateString;
+            document.getElementById('outRoom').textContent = `房號：${room}`;
+            document.getElementById('outPersonnel').textContent = `對象：${personnel}`;
+
+            
+            document.getElementById('inputForm').style.display = 'none';
+            document.getElementById('printArea').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        
+        function backToEdit() {
+            document.getElementById('printArea').style.display = 'none';
+            document.getElementById('inputForm').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        
+        function copyToClipboard() {
+            const dateStr = document.getElementById('outDate').textContent;
+            const roomStr = document.getElementById('outRoom').textContent;
+            const personnelStr = document.getElementById('outPersonnel').textContent;
+
+            let questionsStr = "";
+            const qList = document.getElementById('outQuestions').getElementsByTagName('li');
+            for (let i = 0; i < qList.length; i++) {
+                questionsStr += qList[i].textContent + "\n";
+            }
+
+            const textToCopy = `🏥 醫護溝通小幫手\n${dateStr}\n${roomStr}\n${personnelStr}\n\n【問題清單】\n${questionsStr}`;
+
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    alert('✅ 已經成功複製內容！您可以直接貼上至 LINE 聊天室。');
+                }).catch(err => {
+                    alert('複製失敗，請手動長按選取文字複製。');
+                });
+            } else {
+                // 降級方案：如果是在不支援的 LINE 舊版 Webview
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('✅ 已經成功複製內容！您可以直接貼上至 LINE 聊天室。');
+                } catch (err) {
+                    alert('複製失敗，請手動長按選取文字複製。');
+                }
+                textArea.remove();
+            }
+        }
+    </script>
+</body>
+
+</html>
