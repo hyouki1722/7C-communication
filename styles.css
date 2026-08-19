@@ -186,3 +186,69 @@ select:focus {
     border-left: 4px solid #9c27b0;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
+
+.clear-btn {
+    width: 100%;
+    padding: 10px;
+    background: none;
+    color: #9e9e9e;
+    border: none;
+    font-size: 14px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.clear-btn:hover {
+    color: #c62828;
+}
+
+/* 輕量提示 toast */
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translate(-50%, 20px);
+    background-color: #4a3b5c;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 30px;
+    font-size: 15px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 999;
+    max-width: 90vw;
+    text-align: center;
+}
+
+#toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+/* 列印樣式：只印出問題清單內容 */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #printArea, #printArea * {
+        visibility: visible;
+    }
+
+    #printArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        border: none;
+        box-shadow: none;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+}
+ 

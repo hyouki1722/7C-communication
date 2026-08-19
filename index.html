@@ -1,9 +1,11 @@
+
+Index · HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>醫病溝通與詢問小幫手</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -40,7 +42,7 @@
                     <div class="question-row">
                         <span class="q-number">1.</span>
                         <input type="text" class="q-input" placeholder="例如：想了解這次住院的療程" required>
-                        <div style="width: 36px;" class="placeholder-space"></div>
+                        <button type="button" class="delete-btn" style="visibility:hidden;">✕</button>
                     </div>
                 </div>
 
@@ -64,19 +66,32 @@
                 <ul class="question-list" id="outQuestions"></ul>
             </div>
 
-            <div class="btn-group" style="margin-top: 25px;">
+            <div class="btn-group no-print" style="margin-top: 25px;">
                 <button type="button" class="submit-btn" onclick="copyToClipboard()" style="margin-bottom: 12px;">📄
                     複製文字 (貼至 LINE)</button>
+                <button type="button" class="add-btn" onclick="window.print()" style="margin-bottom: 12px;">🖨️
+                    列印 / 存成 PDF</button>
                 <button type="button" class="add-btn" onclick="backToEdit()">⬅️ 返回修改</button>
+                <button type="button" class="clear-btn" onclick="clearAll()">🗑️ 清空重新填寫</button>
             </div>
         </div>
     </div>
 
+    <div id="toast"></div>
+
     <script>
         
+        const MAX_QUESTIONS = 15;
+
         function addQuestionBox() {
             const container = document.getElementById('questionContainer');
             const currentCount = container.getElementsByClassName('question-row').length;
+
+            if (currentCount >= MAX_QUESTIONS) {
+                showToast(`最多只能新增 ${MAX_QUESTIONS} 個問題喔！`);
+                return;
+            }
+
             const nextNumber = currentCount + 1;
 
             const rowDiv = document.createElement('div');
@@ -91,6 +106,9 @@
             inputField.className = 'q-input';
             inputField.placeholder = '請輸入您的問題';
 
+            inputField.addEventListener('keydown', handleQuestionKeydown);
+            inputField.addEventListener('input', saveDraft);
+
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'delete-btn';
@@ -98,6 +116,8 @@
             deleteBtn.onclick = function () {
                 container.removeChild(rowDiv);
                 reCalculateNumbers();
+                updateDeleteButtonsVisibility();
+                saveDraft();
             };
 
             rowDiv.appendChild(numSpan);
@@ -105,14 +125,38 @@
             rowDiv.appendChild(deleteBtn);
             container.appendChild(rowDiv);
 
-            
+            updateDeleteButtonsVisibility();
+
             setTimeout(() => {
                 inputField.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 inputField.focus();
             }, 100);
         }
 
-        
+        // Enter 鍵：若是最後一格，新增下一題；否則跳到下一格輸入框
+        function handleQuestionKeydown(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const allInputs = Array.from(document.getElementsByClassName('q-input'));
+            const idx = allInputs.indexOf(e.target);
+            if (idx === allInputs.length - 1) {
+                addQuestionBox();
+            } else {
+                allInputs[idx + 1].focus();
+            }
+        }
+
+        // 只剩一個問題時，隱藏刪除按鈕，避免清單被清空到 0 題
+        function updateDeleteButtonsVisibility() {
+            const container = document.getElementById('questionContainer');
+            const rows = container.getElementsByClassName('question-row');
+            const onlyOneLeft = rows.length <= 1;
+            for (const row of rows) {
+                const btn = row.getElementsByClassName('delete-btn')[0];
+                if (btn) btn.style.visibility = onlyOneLeft ? 'hidden' : 'visible';
+            }
+        }
+
         function reCalculateNumbers() {
             const container = document.getElementById('questionContainer');
             const rows = container.getElementsByClassName('question-row');
@@ -195,7 +239,7 @@
             
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(textToCopy).then(() => {
-                    alert('✅ 已經成功複製內容！您可以直接貼上至 LINE 聊天室。');
+                    showToast('✅ 已成功複製！可直接貼上至 LINE 聊天室。');
                 }).catch(err => {
                     alert('複製失敗，請手動長按選取文字複製。');
                 });
@@ -210,13 +254,97 @@
                 textArea.select();
                 try {
                     document.execCommand('copy');
-                    alert('✅ 已經成功複製內容！您可以直接貼上至 LINE 聊天室。');
+                    showToast('✅ 已成功複製！可直接貼上至 LINE 聊天室。');
                 } catch (err) {
                     alert('複製失敗，請手動長按選取文字複製。');
                 }
                 textArea.remove();
             }
         }
+
+        // ---- 輕量提示 toast，取代大部分 alert() ----
+        let toastTimer = null;
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        // ---- 草稿自動保存（避免切出 App / 誤操作導致內容遺失）----
+        const DRAFT_KEY = 'medHelperDraft_v1';
+
+        function saveDraft() {
+            const room = document.getElementById('roomNumber').value;
+            const personnel = document.getElementById('personnel').value;
+            const questions = Array.from(document.getElementsByClassName('q-input')).map(el => el.value);
+            try {
+                localStorage.setItem(DRAFT_KEY, JSON.stringify({ room, personnel, questions }));
+            } catch (e) {
+                // localStorage 不可用時（如無痕模式）安靜略過，不影響主要功能
+            }
+        }
+
+        function loadDraft() {
+            let draft;
+            try {
+                draft = JSON.parse(localStorage.getItem(DRAFT_KEY));
+            } catch (e) {
+                return;
+            }
+            if (!draft) return;
+
+            document.getElementById('roomNumber').value = draft.room || '';
+            if (draft.personnel) document.getElementById('personnel').value = draft.personnel;
+
+            const container = document.getElementById('questionContainer');
+            container.innerHTML = '';
+            const questions = (draft.questions && draft.questions.length) ? draft.questions : [''];
+            questions.forEach((q) => {
+                addQuestionBox();
+                const inputs = document.getElementsByClassName('q-input');
+                inputs[inputs.length - 1].value = q;
+            });
+            updateDeleteButtonsVisibility();
+        }
+
+        function clearAll() {
+            if (!confirm('確定要清空所有內容，重新開始填寫嗎？')) return;
+            document.getElementById('roomNumber').value = '';
+            document.getElementById('personnel').value = '';
+            const container = document.getElementById('questionContainer');
+            container.innerHTML = '';
+            try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+            addQuestionBox();
+            updateDeleteButtonsVisibility();
+            document.getElementById('printArea').style.display = 'none';
+            document.getElementById('inputForm').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ---- 初始化 ----
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('roomNumber').addEventListener('input', saveDraft);
+            document.getElementById('personnel').addEventListener('change', saveDraft);
+
+            const firstInput = document.querySelector('.q-input');
+            firstInput.addEventListener('keydown', handleQuestionKeydown);
+            firstInput.addEventListener('input', saveDraft);
+
+            const firstDeleteBtn = document.querySelector('.delete-btn');
+            firstDeleteBtn.onclick = function () {
+                const row = firstDeleteBtn.closest('.question-row');
+                row.parentElement.removeChild(row);
+                reCalculateNumbers();
+                updateDeleteButtonsVisibility();
+                saveDraft();
+            };
+
+            loadDraft();
+        });
     </script>
 </body>
 
